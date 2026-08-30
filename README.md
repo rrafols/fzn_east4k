@@ -66,4 +66,4 @@ that named symbols which never existed (`_orderList` against a label of
 Original intro by **Fuzzion**, 2003 — code by bp and ufix, music by sml.
 Released at Breakpoint 2003. The ports keep the original data intact.
 
-**Port to macOS x86_64 done with heavy usage of Claude**.
+**Port to macOS x86_64 & WebGL done with heavy usage of Claude**.
