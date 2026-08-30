@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Looking for the East</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #ui {
+    position: fixed; inset: 0; display: grid; place-content: center;
+    font: 14px/1.7 ui-monospace, Menlo, Consolas, monospace;
+    color: #e8d8c8; background: #140404; text-align: center; letter-spacing: .04em;
+  }
+  #ui b { display: block; font-size: 22px; font-weight: 600; letter-spacing: .16em; margin-bottom: 6px; }
+  #ui small { color: #a07868; }
+  #ui button {
+    margin-top: 22px; padding: 10px 26px; font: inherit; letter-spacing: .12em;
+    color: #140404; background: #e8b878; border: 0; border-radius: 2px; cursor: pointer;
+  }
+  #ui button:disabled { background: #4a2a1a; color: #a07868; cursor: default; }
+  #ui.gone { display: none; }
+</style>
+
+<canvas id="c"></canvas>
+<div id="ui">
+  <b>LOOKING FOR THE EAST</b>
+  <small>Fuzzion &middot; 2nd place, Breakpoint 2003 &middot; WebGL port</small>
+  <button id="go" disabled>preparing&hellip;</button>
+  <small id="note" style="margin-top:14px">115 seconds &middot; Esc to quit</small>
+</div>
+
+<script type="module">
+import { createGL, renderAudio, seed, audioBuffer, RENDER_W, RENDER_H } from './src/intro.js';
+import { drawFrame } from './src/frame.js';
+
+const canvas = document.getElementById('c');
+const ui = document.getElementById('ui');
+const go = document.getElementById('go');
+const note = document.getElementById('note');
+
+const g = createGL(canvas);
+const pcm = await renderAudio(m => { go.textContent = m + '…'; });
+go.textContent = 'start';
+go.disabled = false;
+
+go.onclick = async () => {
+  ui.classList.add('gone');
+
+  // Visuals and music come off one clock, as they do in the macOS port - here
+  // that clock is the audio device's, so they cannot drift apart at all.  If
+  // there is no audio device to start, fall back to the wall clock and run the
+  // visuals anyway rather than hanging on a resume() that will never settle.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+  await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 1500))]);
+  const withAudio = ctx.state === 'running';
+
+  let src = null, t0 = 0;
+  if (withAudio) {
+    src = ctx.createBufferSource();
+    src.buffer = audioBuffer(ctx, pcm);
+    src.connect(ctx.destination);
+    t0 = ctx.currentTime + 0.12;
+    src.start(t0);
+  }
+
+  seed(performance.now() * 1e6);
+  const wall0 = performance.now() + (withAudio ? 120 : 0);
+
+  let running = true;
+  const stop = () => {
+    running = false;
+    try { src?.stop(); } catch {}
+    ui.classList.remove('gone');
+    go.textContent = 'again';
+    note.textContent = 'that was it \u00b7 115 seconds';
+  };
+  addEventListener('keydown', e => { if (e.key === 'Escape') stop(); });
+
+  const loop = () => {
+    if (!running) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+
+    const ms = Math.max(0, withAudio ? (ctx.currentTime - t0) * 1000
+                                     : performance.now() - wall0);
+    g.beginFrame();
+    if (!drawFrame(g, ms)) { stop(); return; }
+    g.present(canvas.width, canvas.height);
+    window.__drawn = (window.__drawn | 0) + 1;   // tools/headless.mjs smoke
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+};
+</script>

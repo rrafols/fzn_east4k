@@ -1,0 +1,6 @@
+{
+  "name": "looking-for-the-east-webgl",
+  "private": true,
+  "type": "module",
+  "description": "WebGL port of the Fuzzion 4k intro. Present so node treats src/*.js as ES modules; the intro itself needs no build step and no dependencies."
+}

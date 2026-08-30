@@ -13,14 +13,15 @@ its ports.
     ports/
       win32/         the original, as released in 2003
       macos-x86_64/  Intel macOS, CGL + CoreAudio
+      webgl/         browsers, WebGL 2 + Web Audio
     packers/
       onekpaq64/     64-bit port of the oneKpaq decompressor, for any x86-64 port
 
 
 ## What is genuinely shared
 
-`common/data/` is the source of truth for the intro's *content*, and both
-existing ports assemble the same files:
+`common/data/` is the source of truth for the intro's *content*, and every port
+takes the same files:
 
 | file | what it is |
 |---|---|
@@ -30,9 +31,10 @@ existing ports assemble the same files:
 | `orderstuff.inc` | which effects play during which order |
 | `cubedata.inc` | the unit cube, two bits per component |
 
-These are NASM `db`/`dd` tables, so an ARM port will need to convert them rather
-than include them. The values are what matters, and they are documented in
-`common/doc/`.
+These are NASM `db`/`dd` tables, so a port that is not assembling them will need
+to convert them rather than include them - `ports/webgl/tools/extract_data.py`
+does that by running them through nasm and reading the bytes back. The values
+are what matters, and they are documented in `common/doc/`.
 
 Everything above that line is per-port: the effects are the same *arithmetic*
 everywhere, but the code is not portable — x87 on Intel, and the platform layer
@@ -44,6 +46,7 @@ Each port builds independently, from its own directory.
 
     cd ports/macos-x86_64 && make        # -> ./east, a 4877-byte Mach-O
     cd ports/win32/src    && build.bat   # needs DOS/Windows and nasm
+    cd ports/webgl        && make serve  # no build step; open the URL it prints
 
 ## A note on the Win32 tree
 

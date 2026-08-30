@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Looking for the East — single frame</title>
+<style>
+  body { margin: 0; background: #000; }
+  canvas { display: block; width: 640px; height: 480px; image-rendering: pixelated; }
+</style>
+<canvas id="c" width="640" height="480"></canvas>
+<script type="module">
+// Renders one of offscreen.inc's thirteen frames and leaves it in window.__shot
+// as a PNG, for tools/headless.mjs.  ?n=<index>, or ?ms=<milliseconds>.
+import { createGL, seed, RENDER_W, RENDER_H } from './src/intro.js';
+import { drawFrame } from './src/frame.js';
+
+const SHOT_MS = [900, 900 + 8 * 1824, 900 + 16 * 1824, 900 + 20 * 1824,
+  900 + 24 * 1824, 900 + 28 * 1824, 900 + 32 * 1824, 900 + 36 * 1824,
+  900 + 40 * 1824, 900 + 48 * 1824, 900 + 49 * 1824, 900 + 52 * 1824,
+  900 + 4 * 1824];
+
+const q = new URLSearchParams(location.search);
+const n = Math.max(0, Math.min(SHOT_MS.length - 1, parseInt(q.get('n') || '0', 10)));
+const only = q.has('ms');
+
+const view = document.getElementById('c');
+const off = document.createElement('canvas');
+off.width = RENDER_W; off.height = RENDER_H;
+const g = createGL(off);
+seed(parseInt(q.get('seed') || '0', 10));
+
+// Step through the earlier frames too: the particle field advances once per
+// frame, so frame n is only right if frames 0..n-1 happened first.
+const upto = only ? [parseInt(q.get('ms'), 10)] : SHOT_MS.slice(0, n + 1);
+g.debug = true;
+let rgb;
+for (const ms of upto) {
+  g.beginFrame();
+  drawFrame(g, ms);
+  g.present(RENDER_W, RENDER_H);   // as the intro's loop does, state and all
+  rgb = g.readPixels();
+}
+
+// ?diff=1 draws the difference against the macOS port's frame instead,
+// amplified 8x, which is how the remaining edge differences were read.
+let ref = null;
+if (q.get('diff')) {
+  const name = 'shot' + n.toString(16).padStart(2, '0') + '.ppm';
+  const b = new Uint8Array(await (await fetch(
+    '../macos-x86_64/build/linked/' + name)).arrayBuffer());
+  let i = 0, seen = 0;
+  while (seen < 4) {                       // skip the P6 header's four fields
+    while (b[i] === 32 || b[i] === 10 || b[i] === 13 || b[i] === 9) i++;
+    while (!(b[i] === 32 || b[i] === 10 || b[i] === 13 || b[i] === 9)) i++;
+    seen++;
+  }
+  ref = b.subarray(i + 1);
+}
+
+const ctx = view.getContext('2d');
+const img = ctx.createImageData(RENDER_W, RENDER_H);
+for (let y = 0; y < RENDER_H; y++) {
+  for (let x = 0; x < RENDER_W; x++) {
+    const s = ((RENDER_H - 1 - y) * RENDER_W + x) * 3, d = (y * RENDER_W + x) * 4;
+    if (ref) {
+      const r = (y * RENDER_W + x) * 3;
+      const e = Math.max(Math.abs(rgb[s] - ref[r]), Math.abs(rgb[s + 1] - ref[r + 1]),
+                         Math.abs(rgb[s + 2] - ref[r + 2]));
+      const v = Math.min(255, e * 8);
+      img.data[d] = v; img.data[d + 1] = v; img.data[d + 2] = v;
+    } else {
+      img.data[d] = rgb[s]; img.data[d + 1] = rgb[s + 1]; img.data[d + 2] = rgb[s + 2];
+    }
+    img.data[d + 3] = 255;
+  }
+}
+ctx.putImageData(img, 0, 0);
+window.__shot = { png: view.toDataURL('image/png').split(',')[1] };
+</script>
