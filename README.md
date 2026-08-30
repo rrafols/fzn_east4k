@@ -3,6 +3,8 @@
 The Fuzzion 4k intro *Looking for the East* (2003, 2nd place at Breakpoint), and
 its ports.
 
+![Screenshot](screenshot.jpg)
+
 ## Layout
 
     common/          everything that is not specific to one platform
